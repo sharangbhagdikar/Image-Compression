@@ -18,56 +18,7 @@ int len, siz;
 int matr[4][4] = {{1, 0, 0, 0}, {1, -1, 0, 0}, {1, -2, 1, 0}, {1, -1, 1, -1}};
 int matrt[4][4] = {{1, 1, 1, 1}, {0, -1, -2, -1}, {0, 0, 1, 1}, {0, 0, 0, -1}};
 
-
-void adap_div2 (int &A0, int &N, int &div, int sum)
-{
-    if(N == 4)
-    {
-        A0 = A0/2;
-        N = N/2;
-    }
-    else
-    {
-        N += 1;
-        A0 += sum;
-    }
-}
-
-
-void adap_div(int sum, int &div)
-{
-    int temp1 = (log2(div) + 3)*15, temp2 = temp1 - 15;
-
-    if(sum > temp1) div = (div == 256) ? 256 : 2*div;
-    else if (sum <= temp2) div = (div == 1) ? 1 : div/2;
-
-    return;
-}
-
-// Reads frequency distribution of each pixel value
-void update_val(map<int, multimap<int, int> > &s, int col, int pix)
-{
-    map<int, int>::iterator it = s[col].find(pix);
-    if(it == s[col].end())
-    {
-        s[col].insert(pair<int, int>(pix, 1));
-    }
-    else
-    {
-        it->second += 1;
-    }
-
-    return;
-}
-
-pair<int, int> flip_pair(const pair<int, int> &p)
-{
-    return (pair<int, int>(-p.second,p.first));
-}
-
-
-// Maps pixels to actual values
-void map_pixels (map<int, vector<int> > &t, vector<bool> &flag)
+void map_pixels_adap (map<int, vector<int> > &t, vector<bool> &flag)
 {
     int j;
     multimap<int, int>::iterator it;
@@ -103,6 +54,90 @@ void map_pixels (map<int, vector<int> > &t, vector<bool> &flag)
 
             }
             else cout<<"Laudu, code check kar"<<endl;
+        }
+    }
+}
+
+void adap_div2 (int sum, int &div)
+{
+    int d = floor(log2(sum) - 4.5);
+    div = d > 8 ? 256 : (d < 0 ? 1 : pow(2,d));
+}
+
+
+void adap_div(int sum, int &div)
+{
+    int temp1 = (log2(div) + 3)*15, temp2 = temp1 - 15;
+
+    if(sum > temp1) div = (div == 256) ? 256 : 2*div;
+    else if (sum <= temp2) div = (div == 1) ? 1 : div/2;
+
+    return;
+}
+
+void adap_div_sbase(int sum, int &div)
+{
+    int temp1 = (log2(div) + 3)*30, temp2 = temp1 - 30;
+
+    if(sum > temp1) div = (div == 256) ? 256 : 2*div;
+    else if (sum <= temp2) div = (div == 1) ? 1 : div/2;
+
+    return;
+}
+
+// Reads frequency distribution of each pixel value
+void update_val(map<int, multimap<int, int> > &s, int col, int pix)
+{
+    map<int, int>::iterator it = s[col].find(pix);
+    if(it == s[col].end())
+    {
+        s[col].insert(pair<int, int>(pix, 1));
+    }
+    else
+    {
+        it->second += 1;
+    }
+
+    return;
+}
+
+pair<int, int> flip_pair(const pair<int, int> &p)
+{
+    return (pair<int, int>(-p.second,p.first));
+}
+
+
+// Maps pixels to actual values
+void map_pixels (map<int, vector<int> > &t, vector<bool> &flag)
+{
+    int j;
+
+    for(int i = 0; i < 3; i++)
+    {
+        j = 1;
+        while (j < t[i].size())
+        {
+            if(j%16 == 0)
+            {
+                j+=1;
+                continue;
+            }
+
+            if (!flag[j/16])
+            {
+                j = (j/16 + 1)*16;
+                continue;
+            }
+
+            if (t[i][j] < -128 || t[i][j] > 127)
+            {
+                flag[j/16] = 0;
+                j = (j/16 + 1)*16;
+                continue;
+            }
+            t[i][j] = (t[i][j] >= 0) ? 2*t[i][j] : 2*abs(t[i][j]) - 1;
+            j += 1;
+
         }
     }
 }
@@ -175,6 +210,35 @@ map<int, vector< int > > MatrixMul ()
     return temp2;
 }
 
+void subtract ()
+{
+    for(int i = 0; i < 3; i++)
+    {
+        for(int j = 0; j < siz; j = j + 16)
+        {
+            for(int k = j + 1; k < j + 16; k++)
+            {
+                rgb[i][k] -= rgb[i][j];
+            }
+        }
+    }
+    return;
+}
+
+void xoring ()
+{
+    for(int i = 0; i < 3; i++)
+    {
+        for(int j = 0; j < siz; j = j + 16)
+        {
+            for(int k = j + 1; k < j + 16; k++)
+            {
+                rgb[i][k] ^= rgb[i][j];
+            }
+        }
+    }
+    return;
+}
 
 long quantize8 (long no)
 {
@@ -236,6 +300,7 @@ void golomb_enc (vector<bool> flag, int div = 16, int div2 = 4)
     //ofstream golomb;
     int q,r;
     long sum = 24, agg = 0, sumrg = 0, sumb = 0;
+    long num_sum = 0;
     //string foo;
     //vector <string> trunc_table = bin_truncate(div);
     //golomb.open("divisors.txt", ios::out | ios::trunc);
@@ -246,36 +311,22 @@ void golomb_enc (vector<bool> flag, int div = 16, int div2 = 4)
         {
             for(int p = l; p < l+15; p++)                           // Since pivot has been left out iterate only till 15 values
             {
-                //for(int j = 0; j < 2; j++)
-                //{
-                //cout<<p<<endl;
                 q = int((intrl[0][p]).to_ulong()/div);
-                //r = int((intrl[0][l]).to_ulong()%div);
-                //foo.assign(q,'1');                      // Fill q number of ones
-                //foo.push_back('0');
-                //temp[j] = foo + "0" + trunc_table[r];
-                //sum += q + 1 + trunc_table[r].size();
                 sumrg += (q + 1 + log2(div));
                 q = int((intrl[1][p]).to_ulong()/div2);
-                //r = int((intrl[1][l]).to_ulong()%div2);
                 sumb += (q + 1 + log2(div2));
-//                if(j!=1)
-//                {
-//                    golomb << temp[j]<<",";
-//                }
-//                else
-//                {
-//                    golomb<<temp[j]<<endl;
-//                }
-            //}
+
+                num_sum += intrl[0][p].to_ulong() + intrl[1][p].to_ulong();
+
             }
             l += 15;
 
             // Adaptive Golomb
             // Uncomment here to get previous function up and running
-            //adap_div(sumrg, div);
-            //adap_div(sumb, div2);
-
+            adap_div(sumrg, div);
+            adap_div(sumb, div2);
+            //adap_div2 (num_sum, div);
+            //adap_div_sbase(sumrg + sumb, div);
 
 
         }
@@ -289,6 +340,7 @@ void golomb_enc (vector<bool> flag, int div = 16, int div2 = 4)
         sum = 24;
         sumrg = 0;
         sumb = 0;
+        num_sum = 0;
 
     }
     cout<<agg/(siz*24.0);
@@ -367,8 +419,11 @@ int main()
     vector<bool> flag (siz/16,1);
 
     rgb = PrintInOrder();
-    rgb = MatrixMul();
 
+    rgb = MatrixMul();
+    //subtract();
+    //xoring();
+    cout<<"ok";
 ///////////////////////////////////////////////
     for(int i = 0; i<3; i++)
     {
@@ -380,11 +435,12 @@ int main()
     }
 
     map_pixels(rgb, flag);
+//    map_pixels_adap(rgb, flag);
 
 ///////////////////////////////////////////////
     for(int i = 0; i < siz; i++)
     {
-        if(flag[i/16] && (i%16 != 0) )                             // Don't encode pivot
+        if(flag[i/16] && (i%16 != 0))                             // Don't encode pivot
         {
             for(int j = 0; j < 16; j++)
             {
@@ -397,7 +453,7 @@ int main()
     }
 //    cout<<intrl[0].size()<<endl<<intrl[1].size();
 //    cout<<"done";
-//    hist.open("Output_transform_map.csv", ios::out | ios::trunc);   // Output mode OR Truncate mode
+//    hist.open("Output_sub8int.csv", ios::out | ios::trunc);   // Output mode OR Truncate mode
 //
 //    for(int i = 0; i < siz; i++)
 //    {
@@ -423,10 +479,11 @@ int main()
 //hist.close();
 
 
-golomb_enc(flag,4,4);
+golomb_enc(flag,16);
 
 
    return 0;
 }
+
 
 
