@@ -60,8 +60,16 @@ void map_pixels_adap (map<int, vector<int> > &t, vector<bool> &flag)
 
 void adap_div2 (int sum, int &div)
 {
-    int d = floor(log2(sum) - 4.5);
+    int d = floor(log2(sum/90.0)) + 1;           // 45
+    //int d = floor(log2(sum) - 5.43) ;          // 4.5
+
+    // Free range divisor movement
     div = d > 8 ? 256 : (d < 0 ? 1 : pow(2,d));
+
+    // Move in steps of +1,=1,0
+//    d = pow(2,d);
+//    div = d > div ? div*2 : (d < div ? div/2 : d);
+//    div = div > 256 ? 256 : (div < 1 ? 1 : div);
 }
 
 
@@ -294,13 +302,14 @@ return lookup;
 
 }
 
-void golomb_enc (vector<bool> flag, int div = 16, int div2 = 4)
+void golomb_enc (vector<bool> flag, int div = 16)
 {
     //string temp[2];
     //ofstream golomb;
     int q,r;
     long sum = 24, agg = 0, sumrg = 0, sumb = 0;
     long num_sum = 0;
+    //float tp = 45, tm = tp/16;
     //string foo;
     //vector <string> trunc_table = bin_truncate(div);
     //golomb.open("divisors.txt", ios::out | ios::trunc);
@@ -313,8 +322,8 @@ void golomb_enc (vector<bool> flag, int div = 16, int div2 = 4)
             {
                 q = int((intrl[0][p]).to_ulong()/div);
                 sumrg += (q + 1 + log2(div));
-                q = int((intrl[1][p]).to_ulong()/div2);
-                sumb += (q + 1 + log2(div2));
+                q = int((intrl[1][p]).to_ulong()/div);
+                sumb += (q + 1 + log2(div));
 
                 num_sum += intrl[0][p].to_ulong() + intrl[1][p].to_ulong();
 
@@ -323,9 +332,9 @@ void golomb_enc (vector<bool> flag, int div = 16, int div2 = 4)
 
             // Adaptive Golomb
             // Uncomment here to get previous function up and running
-            adap_div(sumrg, div);
-            adap_div(sumb, div2);
-            //adap_div2 (num_sum, div);
+            //adap_div(sumrg, div);
+            //adap_div(sumb, div2);
+            adap_div2 (num_sum, div);
             //adap_div_sbase(sumrg + sumb, div);
 
 
@@ -335,12 +344,13 @@ void golomb_enc (vector<bool> flag, int div = 16, int div2 = 4)
         sum += sumrg + sumb;
         sum = (sum > 384) ? 384 : quantize8(sum);
 
-
         agg += sum;
         sum = 24;
         sumrg = 0;
         sumb = 0;
         num_sum = 0;
+//        tp += tm;
+//        tm = tm/16;
 
     }
     cout<<agg/(siz*24.0);
@@ -355,7 +365,7 @@ void golomb_enc (vector<bool> flag, int div = 16, int div2 = 4)
 map<int, vector< int > > PrintInOrder ()
 {
     ofstream print;
-    print.open("dataorder.csv", ios::out | ios::trunc);
+    print.open("data4order.csv", ios::out | ios::trunc);
     map<int, vector< int > > temp;
     for(int i = 0; i < siz; i = i + 4*len)
     {
@@ -390,7 +400,7 @@ int main()
     ofstream hist;                                          // ios::out by default
     bitset<16> enc1, enc2;
     vector<bool> check;
-    image.open("data.csv");                                //Istream is ios::in by default
+    image.open("data4.csv");                                //Istream is ios::in by default
     string col;
 
     int soo;
@@ -425,14 +435,14 @@ int main()
     //xoring();
     cout<<"ok";
 ///////////////////////////////////////////////
-    for(int i = 0; i<3; i++)
-    {
-        for(int j = 0; j <rgb[i].size(); j++)
-        {
-            update_val(rgbmap, i, rgb[i][j]);
-        }
-        rgbmap[i] = gen_map(rgbmap[i]);
-    }
+//    for(int i = 0; i<3; i++)
+//    {
+//        for(int j = 0; j <rgb[i].size(); j++)
+//        {
+//            update_val(rgbmap, i, rgb[i][j]);
+//        }
+//        rgbmap[i] = gen_map(rgbmap[i]);
+//    }
 
     map_pixels(rgb, flag);
 //    map_pixels_adap(rgb, flag);
@@ -453,7 +463,7 @@ int main()
     }
 //    cout<<intrl[0].size()<<endl<<intrl[1].size();
 //    cout<<"done";
-//    hist.open("Output_sub8int.csv", ios::out | ios::trunc);   // Output mode OR Truncate mode
+//    hist.open("Output_transform8int4.csv", ios::out | ios::trunc);   // Output mode OR Truncate mode
 //
 //    for(int i = 0; i < siz; i++)
 //    {
@@ -462,13 +472,13 @@ int main()
 //
 //    hist.close();
 //
-//    hist.open("Output_transform16int.csv", ios::out | ios::trunc);   // Output mode OR Truncate mode
-//    for(int i = 0; i < intrl[0].size(); i++)
-//    {
-//        hist << intrl[0][i].to_ulong()<<","<<intrl[1][i].to_ulong()<<endl;//","<<rgb[2][i].to_string()<<endl;
-//    }
-//
-//    hist.close();
+    hist.open("Output_transform16int4.csv", ios::out | ios::trunc);   // Output mode OR Truncate mode
+    for(int i = 0; i < intrl[0].size(); i++)
+    {
+        hist << intrl[0][i].to_ulong()<<","<<intrl[1][i].to_ulong()<<endl;//","<<rgb[2][i].to_string()<<endl;
+    }
+
+    hist.close();
 
 //multimap<int, int> :: iterator it;
 //hist.open("freq.txt", ios::out | ios::trunc);   // Output mode OR Truncate mode
